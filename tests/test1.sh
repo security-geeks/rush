@@ -1,14 +1,16 @@
 #!/bin/bash
-
-test -e ssshtest || wget -q https://raw.githubusercontent.com/ryanlayer/ssshtest/master/ssshtest
-
-. ssshtest
 set -e
 
+ssshtest_revision=fd3155a7afb39e9bbb77117c2033b4e7a3114579
+ssshtest_sha256=035faff9089dec23990fee55426fb0851b7686c7e5a7eb7623b4992215e7ba20
+test -e ssshtest || curl --fail --location --silent --show-error --retry 3 \
+    -o ssshtest "https://raw.githubusercontent.com/ryanlayer/ssshtest/$ssshtest_revision/ssshtest"
+printf '%s  %s\n' "$ssshtest_sha256" ssshtest | sha256sum --check --status
 
-go build -o rush
-app=./rush
+app=${RUSH_TEST_BIN:-./rush}
+go build -o "$app"
 
+. ssshtest
 set +e
 
 # -------------------------------------------------
@@ -76,7 +78,7 @@ assert_equal $(cat $STDOUT_FILE | sed 's/ //g' | tr -d '\n') "job1123dir/file.tx
 
 # retry
 fn_check_retry() {
-    seq 5 | $app 'python jhz.py' -r 2
+    seq 5 | $app 'exit 2' -r 2
 }
 run retry fn_check_retry
 assert_no_stdout
@@ -84,13 +86,14 @@ assert_in_stderr "ERRO"
 assert_equal $(cat $STDERR_FILE | grep "WARN" | wc -l) 10
 assert_equal $(cat $STDERR_FILE | grep "ERRO" | wc -l) 5
 
-# exit on first err 
+# exit on first err
 fn_check_exit_on_first_err() {
-    seq 5 | $app 'python jhz.py' -e
+    seq 5 | $app 'exit 2' -e
 }
-# run check_exit_on_first_err fn_check_exit_on_first_err
-# assert_no_stdout
-# assert_in_stderr "first"
+run check_exit_on_first_err fn_check_exit_on_first_err
+assert_exit_code 2
+assert_no_stdout
+assert_in_stderr "stop on first error"
 
 # -------------------------------------------------
 
@@ -116,8 +119,8 @@ assert_equal $(cat $STDOUT_FILE | grep "asdf" | wc -l) 10
 
 # continue
 fn_check_continue() {
-    seq 1 10 | $app 'echo {}' -c -C t.rush
-    seq 1 10 | $app 'echo {}' -c -C t.rush
+    seq 1 10 | $app 'echo {}' -c -C t.rush --verbose
+    seq 1 10 | $app 'echo {}' -c -C t.rush --verbose
     rm t.rush
 }
 run continue fn_check_continue
@@ -126,9 +129,9 @@ assert_equal $(cat $STDERR_FILE | grep "ignore" | wc -l) 10
 # continue mutli-line cmds
 fn_check_continue() {
     seq 1 10 | $app 'echo {};\
-        echo s{}' -c -C t2.rush
+        echo s{}' -c -C t2.rush --verbose
     seq 1 10 | $app 'echo {};\
-        echo s{}' -c -C t2.rush
+        echo s{}' -c -C t2.rush --verbose
     rm t2.rush
 }
 run continue fn_check_continue

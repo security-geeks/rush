@@ -1,7 +1,6 @@
 # rush -- a cross-platform command-line tool for executing jobs in parallel
 
 [![Built with GoLang](https://img.shields.io/badge/powered_by-go-6362c2.svg?style=flat)](https://golang.org)
-[![Go Report Card](https://goreportcard.com/badge/github.com/shenwei356/rush)](https://goreportcard.com/report/github.com/shenwei356/rush)
 [![Cross-platform](https://img.shields.io/badge/platform-any-ec2eb4.svg?style=flat)](#download)
 [![Latest Version](https://img.shields.io/github/release/shenwei356/rush.svg?style=flat?maxAge=86400)](https://github.com/shenwei356/rush/releases)
 [![Github Releases](https://img.shields.io/github/downloads/shenwei356/rush/latest/total.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases)
@@ -47,22 +46,28 @@ Major:
   (`--line-buffer` in GNU parallel)
 - **Timeout** (`-t`), terminating the timed-out command and its child-process tree. (`--timeout` in GNU parallel)
 - **Retry** (`-r`). (`--retry-failed --joblog` in GNU parallel)
+- **Start and resource limits**: `--delay`, `--load`, and `--memfree` stagger new jobs
+  and wait for available system capacity.
 - **Safe exit after capturing Ctrl-C**: Linux uses native `SIGINT`/`SIGKILL` signals;
   Windows uses `Ctrl+C`/`Ctrl+Break` followed by `taskkill /T /F` to terminate the process tree.
 - **Continue** (`-c`). (`--resume --joblog` in GNU parallel,
   ***<s/>sut it does not support multi-line commands, which are common in workflow</s>***)
 - **`awk -v` like custom defined variables** (`-v`). (***Using Shell variable in GNU parallel***)
 - **Keeping output in order of input** (`-k`). (Same `-k/--keep-order` in GNU parallel)
-- **Exit on first error(s)** (`-e`). (*not perfect*, you may stop it by typing ctrl-c or closing terminal) (`--halt 2` in GNU parallel) 
+- **Exit on first error** (`-e`): stop scheduling and clean up active child processes. (`--halt 2` in GNU parallel)
 - **Settable record delimiter** (`-D`, default `\n`). (`--recstart` and `--recend` in GNU parallel)
 - **Settable records sending to every command** (`-n`, default `1`). (`-n/--max-args` in GNU parallel)
+- **Send record batches to commands via standard input** (`--pipe`). (`--pipe` in GNU parallel)
 - **Settable field delimiter** (`-d`, default `\s+`). (Same `-d/--delimiter` in GNU parallel)
 - **Practical replacement strings** (like GNU parallel):
-    - `{{}}`, `{}` itself
-    - `{{1,}}`, `{1,}`.
-    - `{#}`, job ID. (Same in GNU parallel)
-    - `{}`, full data. (Same in GNU parallel)
-    - `{n}`, `n`th field in delimiter-delimited data. (Same in GNU parallel)
+    - Input data
+        - `{}`, full data. (Same in GNU parallel)
+        - `{n}`, `n`th field in delimiter-delimited data. (Same in GNU parallel)
+    - Job related
+        - `{#}`, job ID. With `--continue`, its saved form is stable when input order
+        changes. (Same replacement string as GNU parallel.)
+        - `{?}`, threads per job, computed as `max(1, CPUs / jobs)`. With `--continue`,
+        its saved form stays stable when the job count changes. (***Not directly supported in GNU parallel***)
     - Directory and file
         - `{/}`, dirname. (`{//}` in GNU parallel)
         - `{%}`, basename. (`{/}` in GNU parallel)
@@ -75,6 +80,9 @@ Major:
         - `{%.}`, `{%:}`, basename without extension
         - `{2.}`, `{2/}`, `{2%.}`, manipulate `n`th field
         - `{file:}`, `{file:^_1}`, remove all extensions of a preset variable (see below)
+    - Special symbols
+        - `{{}}`, `{}` itself
+        - `{{1,}}`, data containing double quotes `{1,}`.
 - **Preset variable (macro)**, e.g., `rush -v p={^suffix} 'echo {p}_new_suffix'`,
 where `{p}` is replaced with `{^suffix}`. (***Using Shell variable in GNU parallel***)
 
@@ -84,7 +92,8 @@ Minor:
 - Trim input data (`--trim`). (Same in GNU parallel)
 - Verbose output (`--verbose`). (Same in GNU parallel)
 
-[Differences between rush and GNU parallel](https://www.gnu.org/software/parallel/parallel_alternatives.html#DIFFERENCES-BETWEEN-Rush-AND-GNU-Parallel) on GNU parallel site.
+Note that the comparison between rush and GNU parallel might be outdated, as both tools might have improved.
+See [Differences between rush and GNU parallel](https://www.gnu.org/software/parallel/parallel_alternatives.html#DIFFERENCES-BETWEEN-Rush-AND-GNU-Parallel) on GNU parallel site.
 
 ## Performance
 
@@ -109,27 +118,36 @@ Or use [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-install
 
     mamba install -c conda-forge rush
 
+#### Windows: Scoop
+
+Add the [rush Scoop bucket](https://github.com/shenwei356/rush/tree/master/bucket) and install the published Windows build:
+
+    scoop bucket add rush https://github.com/shenwei356/rush
+    scoop install rush/rush
+
+Scoop selects the 32-bit, 64-bit, or ARM64 binary for your system. The bucket manifest is updated automatically after a stable release is published with all three Windows archives. To get the new version, run `scoop update` followed by `scoop update rush`.
+
 #### Method 1: Download binaries
 
-[rush v0.10.0](https://github.com/shenwei356/rush/releases/tag/v0.10.0)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/rush/v0.10.0/total.svg)](https://github.com/shenwei356/rush/releases/tag/v0.10.0)
+[rush v0.11.0](https://github.com/shenwei356/rush/releases/tag/v0.11.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/rush/v0.11.0/total.svg)](https://github.com/shenwei356/rush/releases/tag/v0.11.0)
 
 ***Tip: run `rush -V` to check update !!!***
 
 OS     |Arch      |File,                                                                                                                           |Download Count
 :------|:---------|:-------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[rush_linux_386.tar.gz](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_386.tar.gz)                      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_386.tar.gz)
-Linux  |**64-bit**|[**rush_linux_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_amd64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_amd64.tar.gz)
-Linux  |**arm64** |[**rush_linux_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_arm64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_linux_arm64.tar.gz)
-OS X   |**64-bit**|[**rush_darwin_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_darwin_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_darwin_amd64.tar.gz)
-OS X   |**arm64** |[**rush_darwin_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_darwin_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_darwin_arm64.tar.gz)
-Windows|32-bit    |[rush_windows_386.exe.tar.gz](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**rush_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_amd64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_amd64.exe.tar.gz)
-Windows|**arm64** |[**rush_windows_arm64.exe.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_arm64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_arm64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_windows_arm64.exe.tar.gz)
-OpenBSD|**64-bit**|[**rush_openbsd_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_openbsd_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_openbsd_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_openbsd_amd64.tar.gz)
-OpenBSD|**arm64** |[**rush_openbsd_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_openbsd_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_openbsd_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_openbsd_arm64.tar.gz)
-FreeBSD|**64-bit**|[**rush_freebsd_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_freebsd_amd64.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_freebsd_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_freebsd_amd64.tar.gz)
-FreeBSD|**arm64** |[**rush_freebsd_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_freebsd_arm64.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_freebsd_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.10.0/rush_freebsd_arm64.tar.gz)
+Linux  |32-bit    |[rush_linux_386.tar.gz](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_386.tar.gz)                      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_386.tar.gz)
+Linux  |**64-bit**|[**rush_linux_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_amd64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_amd64.tar.gz)
+Linux  |**arm64** |[**rush_linux_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_arm64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_linux_arm64.tar.gz)
+OS X   |**64-bit**|[**rush_darwin_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_darwin_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_darwin_amd64.tar.gz)
+OS X   |**arm64** |[**rush_darwin_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_darwin_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_darwin_arm64.tar.gz)
+Windows|32-bit    |[rush_windows_386.exe.tar.gz](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**rush_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_amd64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_amd64.exe.tar.gz)
+Windows|**arm64** |[**rush_windows_arm64.exe.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_arm64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_windows_arm64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_windows_arm64.exe.tar.gz)
+OpenBSD|**64-bit**|[**rush_openbsd_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_openbsd_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_openbsd_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_openbsd_amd64.tar.gz)
+OpenBSD|**arm64** |[**rush_openbsd_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_openbsd_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_openbsd_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_openbsd_arm64.tar.gz)
+FreeBSD|**64-bit**|[**rush_freebsd_amd64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_freebsd_amd64.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_freebsd_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_freebsd_amd64.tar.gz)
+FreeBSD|**arm64** |[**rush_freebsd_arm64.tar.gz**](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_freebsd_arm64.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/rush/latest/rush_freebsd_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/rush/releases/download/v0.11.0/rush_freebsd_arm64.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/rush/releases) compressed
@@ -155,9 +173,9 @@ And then:
 #### Method 3: Compiling from source
 
     # download Go from https://go.dev/dl
-    wget https://go.dev/dl/go1.25.5.linux-amd64.tar.gz
+    wget https://go.dev/dl/go1.25.14.linux-amd64.tar.gz
     
-    tar -zxf go1.25.5.linux-amd64.tar.gz -C $HOME/
+    tar -zxf go1.25.14.linux-amd64.tar.gz -C $HOME/
     
     # or 
     #   echo "export PATH=$PATH:$HOME/go/bin" >> ~/.bashrc
@@ -181,7 +199,7 @@ And then:
 ```text
 rush -- a cross-platform command-line tool for executing jobs in parallel
 
-Version: 0.10.0
+Version: 0.11.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -195,6 +213,7 @@ Input:
     -D, --record-delimiter  record delimiter (default "\n")
     -n, --nrecords          number of records sent to a command (default 1)
     -J, --records-join-sep  record separator for joining multi-records (default "\n")
+        --pipe              send each group of records to the command's standard input
     -T, --trim              trim white space (" \t\r\n") in input
 
 Output:
@@ -219,6 +238,9 @@ Replacement strings in commands:
   {?}         a value computed as $cpus / $jobs, which can be used as the number of
               threads for each command. This value is dynamically adjusted according
               to the number of jobs (-j/--jobs).
+
+  With --continue, {#} and {?} are kept stable in the successful-command file,
+  so changing input order or job count does not rerun otherwise unchanged jobs.
 
   Escaping curly brackets "{}":
     {{}}        {}
@@ -294,7 +316,6 @@ Examples:
       sample sample_1.fq.gz sample_2.fq.gz
   13. save successful commands to continue in NEXT run
       $ seq 1 3 | rush 'sleep {}; echo {}' -c -t 2
-      [INFO] ignore cmd #1: sleep 1; echo 1
       [ERRO] run cmd #1: sleep 2; echo 2: time out
       [ERRO] run cmd #2: sleep 3; echo 3: time out
   14. escape special symbols
@@ -308,6 +329,8 @@ Examples:
   16. run a command with relative paths in Windows, please use backslash as the separator.
       # "brename -l -R" is used to search paths recursively
       $ brename -l -q -R -i -p "\.go$" | rush "bin\app.exe {}"
+  17. send a fixed number of records to each command's standard input
+      $ seq 10000 | rush --pipe -n 1000 -j 4 'wc -l'
 
   More examples: https://github.com/shenwei356/rush
 
@@ -319,7 +342,9 @@ Flags:
   -c, --continue                  continue jobs. NOTES: 1) successful commands are saved in file (given
                                   by flag -C/--succ-cmd-file); 2) if the file does not exist, rush saves
                                   data so we can continue jobs next time; 3) if the file exists, rush
-                                  ignores jobs in it and update the file
+                                  ignores jobs in it and update the file; 4) skipped jobs are silent
+                                  unless --verbose is used
+      --delay float               minimum seconds between starting jobs (supports fractions)
       --dry-run                   print command but not run
   -q, --escape                    escape special symbols like $ which you can customize by flag
                                   -Q/--escape-symbols
@@ -331,20 +356,23 @@ Flags:
   -i, --infile strings            input data file, multi-values supported
   -j, --jobs int                  run n jobs in parallel (default value depends on your device) (default 16)
   -k, --keep-order                keep output in order of input
+      --load string               start jobs only while system load is below this value (number or
+                                  percent of CPUs)
+      --memfree string            minimum available memory before starting jobs (bytes or K/M/G/T/P suffix)
       --no-kill-exes strings      exe names to exclude from kill signal, example: mspdbsrv.exe; or use
                                   all for all exes (default none)
       --no-stop-exes strings      exe names to exclude from stop signal, example: mspdbsrv.exe; or use
                                   all for all exes (default none)
   -n, --nrecords int              number of records sent to a command (default 1)
   -o, --out-file string           out file ("-" for stdout) (default "-")
+      --pipe                      send each group of records to the command's standard input
       --print-retry-output        print output from retry commands (default true)
       --propagate-exit-status     propagate child exit status up to the exit status of rush (default true)
   -D, --record-delimiter string   record delimiter (default is "\n") (default "\n")
   -J, --records-join-sep string   record separator for joining multi-records (default is "\n") (default "\n")
   -r, --retries int               maximum retries (default 0)
       --retry-interval float      retry interval (unit: second, supports fractions like 0.5) (default 0)
-  -e, --stop-on-error             stop child processes on first error (not perfect, you may stop it by
-                                  typing ctrl-c or closing terminal)
+  -e, --stop-on-error             stop scheduling and clean up active child processes on first error
   -C, --succ-cmd-file string      file for saving successful commands (default "successful_cmds.rush")
   -t, --timeout int               timeout of a command (unit: seconds, 0 for no timeout) (default 0)
   -T, --trim string               trim white space (" \t\r\n") in input (available values: "l" for left,
@@ -353,6 +381,24 @@ Flags:
   -V, --version                   print version information and check for update
 
 ```
+
+`--delay` sets the minimum interval between process starts in seconds, for example
+`--delay 0.5`. `--load 100%` allows a new job only when the system's one-minute
+load average is below the number of CPUs; a number such as `--load 4` sets an
+absolute threshold. `--memfree 1G` waits until at least 1 GiB of physical memory
+is available. Uppercase size suffixes use powers of 1024, and lowercase suffixes
+use powers of 1000. These limits apply to starts and retries; `-j` still caps
+the number of concurrent jobs.
+
+If available memory falls below half the `--memfree` threshold, rush stops the
+youngest running job and places it back in the queue. Its buffered standard
+output is discarded; standard error already written may remain visible. This
+restart does not use one of its `-r/--retries` attempts.
+On Windows, the load average is estimated from the processor queue and may
+initially read as zero. Resource checks use system-wide values, so memory
+limits imposed on a container may differ from the reported available memory.
+
+    seq 10 | rush -j 4 --delay 0.5 --load 100% --memfree 1G 'run-test {}'
 
 
 ## Examples
@@ -393,7 +439,7 @@ Flags:
         python: can't open file 'unexisted_script.py': [Errno 2] No such file or directory
         [ERRO] wait command: python unexisted_script.py: exit status 2
 
-1. Input containing `{}` (since v0.7.0)
+1. Input containing `{}` (since v0.11.0)
 
         $ echo "a attr{href}"="h4 text{}" | rush -T b -k -D "=" 'echo "{}"'
         a attr{href}
@@ -421,8 +467,26 @@ Flags:
 
 1. Job ID, combine fields index and other replacement strings
 
-        $ echo 12 file.txt dir/s_1.fq.gz | rush 'echo job {#}: {2} {2.} {3%:^_1}'
+        $ echo 12 file.txt dir/s_1.fq.gz | rush 'echo "job {#}: {2} {2.} {3%:^_1}"'
         job 1: file.txt file s
+        
+1. Combine `{#}` with `-c/--continue`.
+
+        $ seq 5 | rush 'timeout 3 sh -c "sleep {}; echo \"job {#}: input {}\""' -c
+        job 1: input 1
+        job 2: input 2
+        15:37:10.744 [ERRO] wait cmd #4: timeout 3 sh -c "sleep 4; echo \"job 4: input 4\"": exit status 124
+        15:37:10.744 [ERRO] wait cmd #3: timeout 3 sh -c "sleep 3; echo \"job 3: input 3\"": exit status 124
+        15:37:10.744 [ERRO] wait cmd #5: timeout 3 sh -c "sleep 5; echo \"job 5: input 5\"": exit status 124
+        
+        $ cat successful_cmds.rush 
+        timeout 3 sh -c "sleep 1; echo \"job {#}: input 1\""__CMD__
+        timeout 3 sh -c "sleep 2; echo \"job {#}: input 2\""__CMD__
+        
+        $ seq 5 | rush 'timeout 3 sh -c "sleep {}; echo \"job {#}: input {}\""' -c
+        15:37:19.186 [ERRO] wait cmd #2: timeout 3 sh -c "sleep 4; echo \"job 4: input 4\"": exit status 124
+        15:37:19.186 [ERRO] wait cmd #1: timeout 3 sh -c "sleep 3; echo \"job 3: input 3\"": exit status 124
+        15:37:19.186 [ERRO] wait cmd #3: timeout 3 sh -c "sleep 5; echo \"job 5: input 5\"": exit status 124
 
 1. Capture submatch using regular expression (`{@regexp}`)
 
@@ -456,6 +520,27 @@ Flags:
         1
         3
         5
+
+1. Send record batches to the command's standard input (`--pipe`)
+
+        $ seq 5 | rush --pipe -n 2 -k 'wc -l'
+        2
+        2
+        1
+
+    `-n` sets the maximum number of records in each batch. `-D` controls the
+    input record delimiter. A delimiter terminating a non-empty record is
+    preserved, while an unterminated final record remains unterminated. Empty
+    records are ignored, as in normal mode. `-J` only affects record placeholders
+    and does not change data sent to standard input.
+
+    Retries receive the same batch again. With `--continue`, a batch is identified
+    by both the expanded command and a digest of its standard input. Replacement
+    strings remain available, but omit record placeholders such as `{}` when the
+    goal is to avoid shell command-line size limits.
+
+    `rush` currently reads all input before starting jobs. `--pipe` avoids command-line
+    size limits, but does not yet provide streaming block processing.
 
 1. Custom record delimiter (`-D`), note that empty records are not used.
 
@@ -540,27 +625,30 @@ Flags:
     Process cleanup differs by platform:
 
     - Linux: rush sends `SIGINT` to every marked child process, waits up to `--cleanup-time`, and then sends `SIGKILL` to any remaining processes using native system calls.
-    - Windows: rush sends `Ctrl+C` and then `Ctrl+Break`, waiting up to `--cleanup-time` after each signal. It finally runs `taskkill /T /F /PID <pid>` to forcefully terminate each remaining process and its child-process tree.
+    - Windows: rush starts each command in a new process group and sends that group a directed `Ctrl+Break`, followed by forced tree cleanup. Windows cannot direct `Ctrl+C` to a child group; a user `Ctrl+C` still makes rush exit with status 130.
+    - Unix `Ctrl+C` exits with status 130 and `SIGTERM` exits with status 143. A command timeout exits with status 124.
+    - Cleanup covers ordinary descendants that remain in the Unix process group or Windows parent/child tree. Processes that deliberately detach, daemonize, create a new console/session, or use Windows breakaway are outside this guarantee.
 
     Press `Ctrl-C` again to skip the remaining cleanup delay and immediately kill unfinished processes.
     Commands that have not started are discarded after the interrupt and are not executed.
 
-        $ seq 1 20 | rush 'sleep 1; echo {}'
-        ^C[CRIT] received an interrupt, stopping unfinished commands...
-        [ERRO] wait cmd #7: sleep 1; echo 7: signal: interrupt
-        [ERRO] wait cmd #5: sleep 1; echo 5: signal: killed
-        [ERRO] wait cmd #6: sleep 1; echo 6: signal: killed
-        [ERRO] wait cmd #8: sleep 1; echo 8: signal: killed
-        [ERRO] wait cmd #9: sleep 1; echo 9: signal: killed
-        1
-        3
+        $ seq 1 20 | rush -j 4 'sleep 1; echo {}'
         4
+        1
         2
+        3
+        ^C23:16:30.725 [CRIT] received an interrupt, stopping unfinished commands...
+        23:16:30.741 [ERRO] cancelled
+        23:16:30.741 [ERRO] cancelled
+        23:16:30.741 [ERRO] cancelled
+        23:16:30.741 [ERRO] cancelled
+
 
 1. Continue/resume jobs (`-c`). When some jobs failed (by execution failure, timeout,
     or cancelling by user with `Ctrl + C`),
     please switch flag `-c/--continue` on and run again,
     so that `rush` can save successful commands and ignore them in **NEXT** run.
+    Skipped commands are silent by default; use `--verbose` to print each one.
 
         $ seq 1 3 | rush 'sleep {}; echo {}' -t 3 -c
         1
@@ -574,8 +662,6 @@ Flags:
 
         # run again
         $ seq 1 3 | rush 'sleep {}; echo {}' -t 3 -c
-        [INFO] ignore cmd #1: sleep 1; echo 1
-        [INFO] ignore cmd #2: sleep 2; echo 2
         [ERRO] run cmd #1: sleep 3; echo 3: time out
 
     Commands of multi-lines (***Not supported in GNU parallel***)
@@ -598,10 +684,6 @@ Flags:
         # run again
         $ seq 1 3 | rush 'sleep {}; echo {}; \
         echo finish {}' -t 3 -c -C finished.rush
-        [INFO] ignore cmd #1: sleep 1; echo 1; \
-        echo finish 1
-        [INFO] ignore cmd #2: sleep 2; echo 2; \
-        echo finish 2
         [ERRO] run cmd #1: sleep 3; echo 3; \
         echo finish 3: time out
 
@@ -695,7 +777,3 @@ propose new functions or ask for help.
 ## License
 
 [MIT License](https://github.com/shenwei356/rush/blob/master/LICENSE)
-
-## Starchart
-
-<img src="https://starchart.cc/shenwei356/rush.svg" alt="Stargazers over time" style="max-width: 100%">

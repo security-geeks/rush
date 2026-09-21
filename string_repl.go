@@ -35,15 +35,28 @@ var reChars = regexp.MustCompile(`\d+|.`)
 var reCharsCheck = regexp.MustCompile(`^(\d+)*.*$`)
 var reVariable = regexp.MustCompile(`^([a-zA-Z][A-Za-z0-9_]*)`)
 
+const continueJobIDMarker = "\x00RUSH_CONTINUE_JOB_ID\x00"
+const continueThreadsMarker = "\x00RUSH_CONTINUE_THREADS\x00"
+
 func fillCommand(config Config, command string, chunk Chunk, NRemainingJobs int) (string, error) {
-	s, err := _fillCommand(config, command, chunk, NRemainingJobs)
+	s, err := _fillCommand(config, command, chunk, NRemainingJobs,
+		fmt.Sprintf("%d", chunk.ID), strconv.Itoa(max(runtime.NumCPU()/config.Jobs, 1)))
 	if err != nil {
 		return s, err
 	}
 	return s, err
 }
 
-func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int) (string, error) {
+func fillCommandForContinue(config Config, command string, chunk Chunk, nRemainingJobs int) (string, error) {
+	s, err := _fillCommand(config, command, chunk, nRemainingJobs, continueJobIDMarker, continueThreadsMarker)
+	if err != nil {
+		return s, err
+	}
+	s = strings.ReplaceAll(s, continueJobIDMarker, "{#}")
+	return strings.ReplaceAll(s, continueThreadsMarker, "{?}"), nil
+}
+
+func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int, jobID, threads string) (string, error) {
 	founds := rePlaceHolder.FindAllStringSubmatchIndex(command, -1)
 	if len(founds) == 0 { // no place holder
 		return command, nil
@@ -69,6 +82,11 @@ func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int
 	// skip emtpy data
 	if fieldsStr == "" || fieldsStr == "\n" || fieldsStr == "\r\n" || fieldsStr == "\r" {
 		return "", nil
+	}
+
+	// escape curly brackets "{}" in the, e.g., "text{}" or "attr{href}"
+	if config.EscapeCurlyBrackets {
+		fieldsStr = reCurlyBrackets.ReplaceAllString(fieldsStr, `{{$1}}`)
 	}
 
 	var fields []string
@@ -100,7 +118,7 @@ func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int
 		if chars == "" { // {}
 			target = fieldsStr
 		} else if chars == "#" { // {#}
-			target = fmt.Sprintf("%d", chunk.ID)
+			target = jobID
 		} else if !reCharsCheck.MatchString(chars) { // something weird
 			target = fmt.Sprintf("{%s}", chars)
 		} else {
@@ -150,7 +168,7 @@ func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int
 				for x, char = range charsGroups[i:] {
 					switch char {
 					case "#": // job number
-						target = fmt.Sprintf("%d", chunk.ID)
+						target = jobID
 						if x == 0 && len(charsGroups[i:]) > 1 {
 							target = fmt.Sprintf("{%s}", chars)
 						}
@@ -182,8 +200,7 @@ func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int
 						captureGroup = true
 						break LOOP
 					case "?": // cpus / jobs
-						// target = strconv.Itoa(max(runtime.NumCPU()/min(config.Jobs, nRemainingJobs), 1))
-						target = strconv.Itoa(max(runtime.NumCPU()/config.Jobs, 1))
+						target = threads
 					default:
 						target = fmt.Sprintf("{%s}", chars)
 						break LOOP
@@ -224,5 +241,5 @@ func _fillCommand(config Config, command string, chunk Chunk, nRemainingJobs int
 		return buf.String(), nil
 	}
 	config.GreedyCount--
-	return _fillCommand(config, buf.String(), chunk, nRemainingJobs)
+	return _fillCommand(config, buf.String(), chunk, nRemainingJobs, jobID, threads)
 }
